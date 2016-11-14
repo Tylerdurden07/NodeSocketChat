@@ -3,11 +3,16 @@ var app = express();
 var server = require('http').createServer(app);
 var redis = require('redis');
 var redisClient = redis.createClient();
+var PORT=8080;
+
+
 redisClient.on('error',function(error){
     console.log("redis error : "+error);
-})
-var io = require('socket.io')(server);
+});
 
+
+var io = require('socket.io')(server);
+// to hold the offline messages later this will be stored to redis
 var messages = [];
 
 function saveMessages(chatMessage) {
@@ -25,11 +30,12 @@ io.on('connection', function (client) {
 
     console.log('client connected');
 
-    client.on('join', function (nickName) {
+        client.on('join', function (nickName) {
         client.nickName = nickName;
 
         client.emit('add chatter',nickName);
 
+        // iterate through chatters to show online users
         redisClient.smembers('chatters',function(err,names){
          names.forEach(function(name){
              client.emit('add chatter',name);
@@ -37,6 +43,7 @@ io.on('connection', function (client) {
         });
         redisClient.sadd('chatters',nickName);
 
+        //iterate stored messages to display when user joins chat
         redisClient.lrange("messages", 0, -1, function (err, redisMessages) {
             redisMessages = redisMessages.reverse();
             redisMessages.forEach(function(chat){
@@ -52,11 +59,11 @@ io.on('connection', function (client) {
 
 
 
-client.on('messages', function (data) {
-client.broadcast.emit('messages', data);
-saveMessages(data);
-});
-
+    client.on('messages', function (data) {
+        client.broadcast.emit('messages', data);
+        saveMessages(data);
+    });
+    // temp comment
    /* client.on('disconnect',function(name){
         client.get('nickName',function(err,name){
         client.broadcast.emit('remove chatter',name);
@@ -75,7 +82,7 @@ app.get('/', function (req, res) {
     res.sendFile(__dirname + "/index.html");
 });
 
-server.listen(8080, function () {
-    console.log("server is running");
+server.listen(PORT, function () {
+    console.log("server is running at port:"+PORT);
 
 })
